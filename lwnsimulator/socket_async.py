@@ -1,4 +1,6 @@
 from lwnsimulator import LoRa_async as LoRa
+
+
 import json
 import time
 import asyncio
@@ -33,8 +35,6 @@ class socket_async:
 		#self.stack.callback(trigger=(LoRa.TX_PACKET_EVENT | LoRa.TX_FAILED_EVENT), handler=self.set_blocking_send_status, arg=()
 		self.timeout=None
 		
-		
-
 	def log(self, msg):
 		if self.log_enable:
 			print('[socket]'+msg)
@@ -50,7 +50,7 @@ class socket_async:
 	def	setblocking(self, flag=False):
 		if flag:
 			self.timeout=None
-		else
+		else:
 			self.timeout=0.0
 
 	def settimeout(self, value):
@@ -64,27 +64,29 @@ class socket_async:
 		if self.confirmed:
 			msg.update({"MType": "ConfirmedDataUp"})
 		self.log('[send]'+json.dumps(msg))
+
 		await self.stack.send(msg)
-		if self.blocking:
-			events=self.stack.events()
-			while not (events&LoRa.TX_PACKET_EVENT) and not(events&LoRa.TX_FAILED_EVENT) :
-				await asyncio.sleep(1)
-				events=self.stack.events()
-			if events & LoRa.TX_PACKET_EVENT:
+		if self.timeout != 0.0:
+			self.stack.create_event_fut(LoRa.TX_PACKET_EVENT|LoRa.TX_FAILED_EVENT)
+			await self.stack.wait_for_event_fut(LoRa.TX_PACKET_EVENT|LoRa.TX_FAILED_EVENT, self.timeout)
+			
+			evt_seen=self.stack.result_event_fut(LoRa.TX_PACKET_EVENT|LoRa.TX_FAILED_EVENT)
+			
+			if evt_seen==LoRa.TX_PACKET_EVENT:
 				self.log('[blocking send] sucess')
-			if events & LoRa.TX_FAILED_EVENT:
-				self.log('[blocking send] sucess')
+			if evt_seen==LoRa.TX_FAILED_EVENT:
+				self.log('[blocking send] failed')
+			self.stack.delete_event_fut(LoRa.TX_PACKET_EVENT|LoRa.TX_FAILED_EVENT)
 		return
 
 	async def recv(self, buffersize):
 		msg={"BufferSize": buffersize}
 		self.log('[recv]'+json.dumps(msg))
-		recv_buf=await self.stack.recv( msg)
-		if recv_buf=="" and self.blocking:
-			while not self.stack.events() & LoRa.RX_PACKET_EVENT:
-				await asyncio.sleep(2.5)
-			recv_buf=await self.stack.recv( msg)
-		return recv_buf
-
-
 		
+		recv_buf, err=await self.stack.recv( msg)
+		if err==LoRa.LWNSim.DevErrorNoDataDWrecv and self.timeout != 0.0:
+			self.stack.create_event_fut(LoRa.RX_PACKET_EVENT)
+			await self.stack.wait_for_event_fut(LoRa.RX_PACKET_EVENT, self.timeout)
+			recv_buf, err=await self.stack.recv( msg)
+			self.stack.delete_event_fut(LoRa.RX_PACKET_EVENT)
+		return recv_buf

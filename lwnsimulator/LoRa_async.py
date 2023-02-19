@@ -2,6 +2,7 @@ from lwnsimulator import lwnsimulator_async as LWNSim
 
 import json
 import asyncio
+import datetime
 
 # LoRa stack mode
 LORAWAN = 1
@@ -40,7 +41,8 @@ class LoRa_async:
 
 	def log(self,msg):
 		if self.log_enable:
-			print('[LoRa]'+msg)
+			now=datetime.datetime.now()
+			print(now.strftime("%Y-%m-%d %H:%M:%S")+'[LoRa]'+msg)
 	
 	def mac(self):
 		return self.devEUI
@@ -55,9 +57,9 @@ class LoRa_async:
 			self.create_event_fut(JOIN_ACCEPT_EVENT)
 		await self.process_user_data(LWNSim.CmdJoinRequest,msg)
 		if timeout != None and timeout != 0 :
-			await self.wait_for_event(JOIN_ACCEPT_EVENT,timeout)
-		
-		
+			await self.wait_for_event_fut(JOIN_ACCEPT_EVENT,timeout)
+			self.delete_event_fut(JOIN_ACCEPT_EVENT)
+
 	def has_joined(self):
 		return self.joined
 		
@@ -71,8 +73,8 @@ class LoRa_async:
 		recv_buf=self.get_recv_buf()
 		err=self.get_error_status()
 		if err != 0:
-			self.log('[recv][ERROR]'+LWNSim.cmd_error_name[error])
-		return recv_buf
+			self.log('[recv][ERROR]'+LWNSim.cmd_error_name[err])
+		return recv_buf, err
 		
 	async def process_user_data(self, event, msg, mode='emit'):
 		msg.update({"Cmd":event,"DevEUI": self.devEUI})
@@ -80,7 +82,7 @@ class LoRa_async:
 		await self.lwnsim.send_cmd(event, msg, mode)
 
 
-	def callback(self, trigger, handler=None, arg=None):
+	def callback(self, trigger, handler=None):
 		self.trigger=trigger
 		self.handler=handler
 
@@ -95,7 +97,7 @@ class LoRa_async:
 		if msg['event'] == JOIN_ACCEPT_EVENT:
 			self.joined=True
 			if JOIN_ACCEPT_EVENT in self.events_fut.keys():
-				self.set_result_event_fut(JOIN_ACCEPT_EVENT,1)
+				self.set_result_event_fut(JOIN_ACCEPT_EVENT,JOIN_ACCEPT_EVENT)
 		elif msg['event'] == UNJOIN_EVENT:
 			self.joined=False
 		elif msg['event'] == TX_PACKET_EVENT:
@@ -105,7 +107,7 @@ class LoRa_async:
 			self.set_result_event_fut(TX_FAILED_EVENT,TX_FAILED_EVENT)
 			self.set_result_event_fut(TX_PACKET_EVENT|TX_FAILED_EVENT,TX_FAILED_EVENT)
 		elif msg['event'] == RX_PACKET_EVENT:
-			pass
+			self.set_result_event_fut(RX_PACKET_EVENT,RX_PACKET_EVENT)
 		
 		self.last_event |= msg['event']
 		if self.last_event & self.trigger:
@@ -124,12 +126,16 @@ class LoRa_async:
 	def set_result_event_fut(self, evt, result=0):
 		if evt in self.events_fut.keys():
 			self.events_fut[evt].set_result(result)
+
+	def result_event_fut(self, evt):
+		if evt in self.events_fut.keys():
+			return self.events_fut[evt].result()
 	
-	async def wait_for_event(self, evt, timeout):
+	async def wait_for_event_fut(self, evt, timeout):
 		if (not evt in self.events_fut.keys()) or self.events_fut[evt].done():
 			return
 		await asyncio.wait_for(self.events_fut[evt], timeout)
-		self.delete_event_fut(evt)
+
 
 
 			

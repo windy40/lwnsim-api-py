@@ -1,5 +1,5 @@
 from lwnsimulator import lwnsimulator as LWNSim
-
+import datetime
 import json
 # LoRa stack mode
 LORAWAN = 1
@@ -37,7 +37,8 @@ class LoRa:
 
 	def log(self,msg):
 		if self.log_enable:
-			print('[LoRa]'+msg)
+			now=datetime.datetime.now()
+			print(now.strftime("%Y-%m-%d %H:%M:%S")+' [LoRa]'+msg)
 	
 	def mac(self):
 		return self.devEUI
@@ -65,7 +66,7 @@ class LoRa:
 		recv_buf=self.get_recv_buf()
 		err=self.get_error_status()
 		if err != 0:
-			self.log('[recv][ERROR]'+LWNSim.cmd_error_name[error])
+			self.log('[recv][ERROR]'+LWNSim.cmd_error_name[err])
 		return recv_buf
 		
 	def handle_user_data(self, event, msg, mode='emit'):
@@ -85,14 +86,16 @@ class LoRa:
 		return evt
 		
 	def handle_lora_event(self, msg):
-		self.log('[Event]'+ str(msg['event']))
 		if msg['event'] == JOIN_ACCEPT_EVENT:
+			self.log('[Event]JoinAccept')
 			self.joined=True
 			return
 		elif msg['event'] == UNJOIN_EVENT:
+			self.log('[Event]Unjoin')
 			self.joined=False
 			return
 		
+		self.log('[Event]'+ str(msg['event']))
 		self.last_event |= msg['event']
 		if self.last_event & self.trigger:
 			self.log('[Event] triggers a callback')

@@ -1,25 +1,36 @@
-#!/bin/python 
+#!/bin/python
 import time
 import sys
 
 import lwnsim_setup
 
-s= lwnsim_setup.s
+s = lwnsim_setup.s
 
 while True:
-	time.sleep(10)
+
+	s.settimeout(10)
+
 	s.setblocking(False)
-	s.send("Hello")
-	print("Hello")
-	
-	time.sleep(0)
-	s.setblocking(True)	
-	data=s.recv(2000)
-	print (data)
+	try:
+		s.send("Hello")
+		print("Hello")
+	except lwnsim_setup.socket.TimeoutError :
+		print("send timeout")
+
+	time.sleep(1)
+
+	try :
+		s.setblocking(True)
+		data = s.recv(2000)
+		print(data)
+	except lwnsim_setup.socket.TimeoutError :
+		print("recv timeout")
 
 
 
 time.sleep(60)
 s.close()
 time.sleep(5)
-sys.exit()
+
+lwnsim_setup.lwnsim.disconnect()
+exit()

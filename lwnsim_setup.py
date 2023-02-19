@@ -16,10 +16,10 @@ def sigint_handler(signum, frame):
 	global lwnsim
 	print("KeyboardInterrupt received")
 	print("LWNSim state="+str(lwnsim.status))
-	if lwnsim.status==LWNSim.ConnSimOK:
-		lwnsim.unlink_dev()
-		lwnsim.disconnect()
-		sys.exit()
+	# if lwnsim.status==LWNSim.ConnLinkDevOK:
+	# 	lwnsim.unlink_dev()
+	lwnsim.disconnect()
+	sys.exit()
 	return
 signal.signal(signal.SIGINT, sigint_handler)
 
@@ -35,7 +35,8 @@ lora=LoRa.LoRa( mode=LoRa.LORAWAN, region=LoRa.EU868, log_enable=True)
 time.sleep(3)
 # create an OTAA authentication parameters
 app_eui = binascii.unhexlify('0000000000000000'.replace(' ',''))
-app_key = binascii.unhexlify('2CC172969D5CC26382E0AD054568CE3E'.replace(' ',''))    
+#app_key = binascii.unhexlify('2CC172969D5CC26382E0AD054568CE3E'.replace(' ','')) 
+app_key = binascii.unhexlify('f1c4081b61e9bee79bef58b5347e78a5'.replace(' ',''))   
 lora.join(activation=LoRa.OTAA, auth=(app_eui, app_key),  timeout=0)
 
 while not lora.has_joined():

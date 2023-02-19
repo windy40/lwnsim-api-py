@@ -21,6 +21,9 @@ def set_blocking_send_status():
 
 global lora_socket
 
+class TimeoutError(Exception):
+	pass
+
 class socket:
 	
 	def __init__(self, af, type, proto=0, log_enable=False):
@@ -65,13 +68,17 @@ class socket:
 		self.stack.send(msg)
 		if self.blocking:
 			events=self.stack.events()
+			if self.timeout != None:
+				start_time=time.time()
 			while not (events&LoRa.TX_PACKET_EVENT) and not(events&LoRa.TX_FAILED_EVENT) :
+				if (self.timeout != None) and (time.time()-start_time > self.timeout) :
+					raise TimeoutError()
 				time.sleep(1)
 				events=self.stack.events()
 			if events & LoRa.TX_PACKET_EVENT:
 				self.log('[blocking send] sucess')
 			if events & LoRa.TX_FAILED_EVENT:
-				self.log('[blocking send] sucess')
+				self.log('[blocking send] failed')
 		return
 
 	def recv(self, buffersize):
@@ -79,9 +86,15 @@ class socket:
 		self.log('[recv]'+json.dumps(msg))
 		recv_buf=self.stack.recv( msg)
 		if recv_buf=="" and self.blocking:
-			while not self.stack.events() & LoRa.RX_PACKET_EVENT:
+			if self.timeout != None:
+				start_time=time.time()
+			while not (self.stack.events() & LoRa.RX_PACKET_EVENT):
+				if (self.timeout != None) and (time.time()-start_time > self.timeout) :
+					raise TimeoutError()
 				time.sleep(2.5)
 			recv_buf=self.stack.recv( msg)
+		if self.blocking:
+			self.log('[blocking recv] sucess')
 		return recv_buf
 
 

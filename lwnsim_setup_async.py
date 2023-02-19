@@ -21,7 +21,7 @@ def sigint_handler():
 	global lwnsim
 	print("KeyboardInterrupt received")
 	print("LWNSim state="+str(lwnsim.status))
-	if lwnsim.status==LWNSim.ConnSimOK:
+	if lwnsim.status==LWNSim.ConnLinkDevOK:
 		lwnsim.unlink_dev()
 		lwnsim.disconnect()
 		sys.exit()
@@ -48,7 +48,7 @@ async def setup():
 	while not lwnsim.connected:
 		lwnsim.log("[SETUP]Not yet connected...")
 		await lwnsim.sleep(1)
-		
+	lwnsim.log("[SETUP] sim connected and device linked")	
 	
 	#await lwnsim.link_dev()
 	#await lwnsim.sleep(3)
@@ -68,10 +68,11 @@ async def setup():
 	#	await lwnsim.sleep(2.5)
 		
 	try:
-		await lora.join(activation=LoRa.OTAA, auth=(app_eui, app_key),  timeout=10)
+		await lora.join(activation=LoRa.OTAA, auth=(app_eui, app_key),  timeout=15)
 		lwnsim.log("[SETUP] device joined")
 	except asyncio.TimeoutError:
 		lwnsim.log("[SETUP] timeout while trying to join")
+		sys.exit()
 
 	s=socket.socket_async(socket.AF_LORA, socket.SOCK_RAW, log_enable=True)
 	s.setsockopt(socket.SOL_LORA, socket.SO_DR, 5)

@@ -1,3 +1,5 @@
+
+Obsolete (LWNsimulator socketio upgraded to v4)
 https://stackoverflow.com/questions/64285895/why-the-connection-function-is-not-activated-when-python-socketio-client-connect
 
 python socket.io version to use with go socket.io

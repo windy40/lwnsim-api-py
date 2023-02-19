@@ -2,6 +2,7 @@ import socketio
 import asyncio
 
 import time
+import datetime
 import json
 #import sys
 #import base64
@@ -10,13 +11,13 @@ from lwnsimulator import LoRa_async as LoRa
 
 global _LWNSim
 # connection status
-ConnSimNOK=0
+ConnNOK=0
 ConnInit=1
 ConnOK=2
 ConnLinkDevNOK=2
 ConnLinkDevInit=3
 ConnLinkDevOK=4 # usefull ?
-ConnSimOK=4
+ConnLinkDevOK=4
 ConnUnlinkDevInit=5
 ConnUnlinkDevOK=6
 ConnDisInit=7
@@ -32,13 +33,23 @@ CmdRecvDownlink="recv-downlink"
 
 CMD_TIMEOUT=10
 # response-cmd errors
-cmd_error_name=["DevCmdOK", "DevCmdTimeout", "NoDeviceWithDevEUI", "NIY", "DeviceNotlinked", "DeviceTurnedOff", "DeviceNotJoined","DeviceAlreadyJoined","RecvBufferEmpty" ]
+DevCmdOK=0
+DevCmdTimeout=1 
+DevErrorNoDeviceWithDevEUI=2
+DevErrorNIY=3 
+DevErrorDeviceNotlinked=4
+DevErrorDeviceTurnedOff=5
+DevErrorDeviceNotJoined=6
+DevErrorDeviceAlreadyJoined=7
+DevErrorNoDataDWrecv=8
+DevErrorSimulatorNotRunning=9
+cmd_error_name=["DevCmdOK", "DevCmdTimeout", "NoDeviceWithDevEUI", "NIY", "DeviceNotlinked", "DeviceTurnedOff", "DeviceNotJoined","DeviceAlreadyJoined","NoDataDWrecv","SimulatorNotRunning" ]
 
 
 
 #sio_hdr={"devEUI": devEUI}
-sio=socketio.AsyncClient(reconnection=True, request_timeout=20, logger=True,engineio_logger=True)
-
+sio=socketio.AsyncClient(reconnection=True, request_timeout=20, logger=False,engineio_logger=False)
+'''
 @sio.event(namespace='/')
 def connect():
 	global _LWNSim
@@ -53,7 +64,7 @@ def connect_error(data):
 def disconnect():
 	global _LWNSim
 	_LWNSim.log("[Socket.io][ns='/'] disconnected")
-
+'''
 ns='/dev'
 
 @sio.event(namespace=ns)
@@ -75,7 +86,7 @@ async def disconnect():
 	global _LWNSim
 	_LWNSim.log("[Socket.io][ns="+ns+"] disconnected")
 	await _LWNSim.unlink_dev()
-	_LWNSim.status=ConnSimNOK
+	_LWNSim.status=ConnNOK
 	_LWNSim.connected=False
 
 @sio.on("response-cmd", namespace=ns)
@@ -130,7 +141,7 @@ class lwnsimulator_async:
 		global ns
 		self.url=url
 		self.sio=sio
-		self.status= ConnSimNOK
+		self.status= ConnNOK
 		self.namespace=ns
 		self.ack_cmd=ack_cmd
 		self.log_enable=log_enable
@@ -154,18 +165,19 @@ class lwnsimulator_async:
 	async def sleep(self, dur):
 		await self.sio.sleep(dur)
 
-	async def wait():
+	async def wait(self):
 		await self.sio.wait()
 
 	def log(self, msg):
 		if self.log_enable:
-			print('[LWSIM]'+msg)
+			now=datetime.datetime.now()
+			print(now.strftime("%Y-%m-%d %H:%M:%S")+'[LWSIM]'+msg)
 			
 # called on connect event
 	async def link_dev(self):
 		self.status= ConnLinkDevInit
 		await self.send_cmd(CmdLinkDev,{"DevEUI": self.DevEUI}, mode='call')
-		self.status= ConnSimOK
+		self.status= ConnLinkDevOK
 
 	async def unlink_dev(self):
 		self.status= ConnUnlinkDevInit
@@ -220,7 +232,7 @@ class lwnsimulator_async:
 			LoRa.lorawan_stack.set_error_status(msg['error'])
 			LoRa.lorawan_stack.set_recv_buf(msg['payload'])
 
-	def handle_sim_event(msg):
+	def handle_sim_event(self,msg):
 		self.log("[Event]["+msg['event']+"]"+json.dumps(msg))
 
 	def test(self,data):
